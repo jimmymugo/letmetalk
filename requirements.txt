@@ -1,0 +1,4 @@
+requests
+pulp
+streamlit
+plotly
