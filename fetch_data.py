@@ -26,6 +26,35 @@ class Player:
     clean_sheets: int = 0
     bonus: int = 0
     total_points: int = 0
+    
+    # Enhanced player ability metrics
+    influence: float = 0.0  # ICT Index component
+    creativity: float = 0.0  # ICT Index component  
+    threat: float = 0.0  # ICT Index component
+    ict_index: float = 0.0  # Combined ICT Index
+    
+    # Expected goals and assists (if available from API)
+    expected_goals: float = 0.0
+    expected_assists: float = 0.0
+    
+    # Advanced metrics
+    bps: int = 0  # Bonus points system
+    saves: int = 0  # For goalkeepers
+    goals_conceded: int = 0  # For defensive players
+    penalties_saved: int = 0  # For goalkeepers
+    penalties_missed: int = 0
+    yellow_cards: int = 0
+    red_cards: int = 0
+    
+    # Availability metrics
+    status: str = "a"  # a=available, u=unavailable, i=injured, n=not available
+    chance_of_playing_next_round: Optional[int] = None
+    news: str = ""  # Injury/news information
+    
+    # Historical consistency metrics
+    consistency_score: float = 0.0  # Based on historical performance variance
+    rotation_risk: float = 0.0  # Risk of being rotated
+    injury_risk: float = 0.0  # Risk of injury based on history
 
     def __post_init__(self):
         # Safety: ensure cost is a float with 1 decimal place and predicted_points is float
@@ -164,10 +193,51 @@ def parse_players(raw_json: Dict) -> List[Player]:
             except (ValueError, TypeError):
                 form = 0.0
 
-        # Make predictions more realistic based on form, minutes, and position
+        # Extract comprehensive player ability metrics
+        influence = float(element.get("influence", 0))
+        creativity = float(element.get("creativity", 0))
+        threat = float(element.get("threat", 0))
+        ict_index = float(element.get("ict_index", 0))
+        
+        # Expected goals and assists (if available)
+        expected_goals = float(element.get("expected_goals", 0))
+        expected_assists = float(element.get("expected_assists", 0))
+        
+        # Advanced metrics
+        bps = element.get("bps", 0)
+        saves = element.get("saves", 0)
+        goals_conceded = element.get("goals_conceded", 0)
+        penalties_saved = element.get("penalties_saved", 0)
+        penalties_missed = element.get("penalties_missed", 0)
+        yellow_cards = element.get("yellow_cards", 0)
+        red_cards = element.get("red_cards", 0)
+        
+        # Availability metrics
+        status = element.get("status", "a")
+        chance_of_playing_next_round = element.get("chance_of_playing_next_round")
+        news = element.get("news", "")
+
+        # Make predictions more realistic based on comprehensive metrics
         minutes_played = element.get("minutes", 0)
         
-        # Adjust prediction based on form (players in good form tend to perform better)
+        # Enhanced prediction using comprehensive metrics
+        base_predicted_points = float(predicted) if predicted not in (None, "") else 0.0
+        
+        # ICT Index adjustment (higher ICT = better performance potential)
+        ict_adjustment = 0.0
+        if ict_index > 100:
+            ict_adjustment = 0.3  # High ICT players tend to perform better
+        elif ict_index > 50:
+            ict_adjustment = 0.1  # Moderate ICT boost
+        elif ict_index < 20:
+            ict_adjustment = -0.2  # Low ICT penalty
+        
+        # Expected goals/assists adjustment
+        xg_xa_adjustment = 0.0
+        if expected_goals > 0.1 or expected_assists > 0.1:
+            xg_xa_adjustment = (expected_goals * 4 + expected_assists * 3) * 0.1  # Convert to points potential
+        
+        # Form adjustment (players in good form tend to perform better)
         form_adjustment = 0.0
         if form > 7.0:
             form_adjustment = 0.5  # Boost for excellent form
@@ -175,6 +245,13 @@ def parse_players(raw_json: Dict) -> List[Player]:
             form_adjustment = 0.2  # Small boost for good form
         elif form < 3.0:
             form_adjustment = -0.3  # Penalty for poor form
+        
+        # Availability adjustment
+        availability_adjustment = 0.0
+        if status != "a":
+            availability_adjustment = -1.0  # Significant penalty for unavailable players
+        elif chance_of_playing_next_round is not None and chance_of_playing_next_round < 75:
+            availability_adjustment = -0.5  # Penalty for rotation risk
         
         # Adjust based on minutes played (more minutes = more realistic prediction)
         minutes_adjustment = 0.0
@@ -199,8 +276,9 @@ def parse_players(raw_json: Dict) -> List[Player]:
             # Forwards can be very inconsistent, slight penalty
             position_adjustment = -0.2
         
-        # Apply adjustments to make predictions more realistic
-        predicted_points = max(0.0, base_predicted_points + form_adjustment + minutes_adjustment + position_adjustment)
+        # Apply all adjustments to make predictions more realistic
+        predicted_points = max(0.0, base_predicted_points + ict_adjustment + xg_xa_adjustment + 
+                              form_adjustment + availability_adjustment + minutes_adjustment + position_adjustment)
         
         # Round to 1 decimal place for realism
         predicted_points = round(predicted_points, 1)
@@ -218,7 +296,24 @@ def parse_players(raw_json: Dict) -> List[Player]:
             assists=element.get("assists", 0),
             clean_sheets=element.get("clean_sheets", 0),
             bonus=element.get("bonus", 0),
-            total_points=element.get("total_points", 0)
+            total_points=element.get("total_points", 0),
+            # Enhanced metrics
+            influence=influence,
+            creativity=creativity,
+            threat=threat,
+            ict_index=ict_index,
+            expected_goals=expected_goals,
+            expected_assists=expected_assists,
+            bps=bps,
+            saves=saves,
+            goals_conceded=goals_conceded,
+            penalties_saved=penalties_saved,
+            penalties_missed=penalties_missed,
+            yellow_cards=yellow_cards,
+            red_cards=red_cards,
+            status=status,
+            chance_of_playing_next_round=chance_of_playing_next_round,
+            news=news
         )
         players.append(player)
 

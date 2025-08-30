@@ -171,7 +171,7 @@ class SquadOptimizer:
         return grouped
 
     def optimize_squad(self, gameweek: Optional[int] = None, use_form: bool = True, use_fixtures: bool = True) -> OptimizedSquad:
-        """Build the optimal 15-player squad using linear programming with enhanced analytics."""
+        """Build the optimal 15-player squad using linear programming with comprehensive player ability analysis."""
         prob = pulp.LpProblem("FPL_Squad_Optimization", pulp.LpMaximize)
 
         # Decision variables: 1 if player is selected, 0 otherwise
@@ -181,28 +181,114 @@ class SquadOptimizer:
                 f"player_{player.id}", cat=pulp.LpBinary
             )
 
-        # Calculate enhanced predicted points
+        # Calculate comprehensive player ability scores
         enhanced_points = {}
         for player in self.players:
             base_points = player.predicted_points
             
-            # Form adjustment
+            # === PLAYER ABILITY ANALYSIS ===
+            # ICT Index analysis (Influence, Creativity, Threat)
+            ict_bonus = 0.0
+            if player.ict_index > 100:
+                ict_bonus = 0.4  # High ICT players are more likely to perform
+            elif player.ict_index > 50:
+                ict_bonus = 0.2
+            elif player.ict_index < 20:
+                ict_bonus = -0.3  # Low ICT penalty
+            
+            # Expected goals/assists analysis
+            xg_xa_bonus = 0.0
+            if player.expected_goals > 0.1:
+                xg_xa_bonus += player.expected_goals * 0.3  # Goals are worth more
+            if player.expected_assists > 0.1:
+                xg_xa_bonus += player.expected_assists * 0.2  # Assists bonus
+            
+            # === AVAILABILITY ANALYSIS ===
+            availability_penalty = 0.0
+            if player.status != "a":
+                availability_penalty = -2.0  # Significant penalty for unavailable players
+            elif player.chance_of_playing_next_round is not None:
+                if player.chance_of_playing_next_round < 50:
+                    availability_penalty = -1.5  # High rotation risk
+                elif player.chance_of_playing_next_round < 75:
+                    availability_penalty = -0.5  # Moderate rotation risk
+            
+            # === TEAM STRENGTH ANALYSIS ===
+            team_strength_bonus = 0.0
+            if self.fixtures and gameweek:
+                team_difficulty = self._get_fixture_difficulty(player.team, gameweek)
+                if team_difficulty <= 2:  # Easy fixture
+                    team_strength_bonus = 0.3
+                elif team_difficulty >= 4:  # Hard fixture
+                    team_strength_bonus = -0.3
+            
+            # === POSITION-SPECIFIC ANALYSIS ===
+            position_bonus = 0.0
+            if player.position == "GK":
+                # Goalkeepers: consider saves and clean sheet potential
+                if player.saves > 20:
+                    position_bonus += 0.2  # Good save rate
+                if player.clean_sheets > 0:
+                    position_bonus += 0.1  # Clean sheet potential
+            elif player.position == "DEF":
+                # Defenders: consider attacking threat and clean sheets
+                if player.goals_scored > 0 or player.assists > 0:
+                    position_bonus += 0.3  # Attacking defender bonus
+                if player.clean_sheets > 0:
+                    position_bonus += 0.2  # Clean sheet potential
+            elif player.position == "MID":
+                # Midfielders: consider creativity and goal threat
+                if player.creativity > 50:
+                    position_bonus += 0.2  # Creative midfielder
+                if player.threat > 50:
+                    position_bonus += 0.2  # Goal threat
+            elif player.position == "FWD":
+                # Forwards: consider goal threat and expected goals
+                if player.threat > 100:
+                    position_bonus += 0.3  # High goal threat
+                if player.expected_goals > 0.2:
+                    position_bonus += 0.2  # Expected goals bonus
+            
+            # === FORM ANALYSIS (if enabled) ===
             form_bonus = 0.0
             if use_form and player.form > 0:
-                form_bonus = (player.form - 5.0) * 0.1  # Small bonus for good form
+                if player.form > 7.0:
+                    form_bonus = 0.3  # Excellent form
+                elif player.form > 5.0:
+                    form_bonus = 0.1  # Good form
+                elif player.form < 3.0:
+                    form_bonus = -0.2  # Poor form
             
-            # Fixture difficulty adjustment
-            fixture_bonus = 0.0
-            if use_fixtures and gameweek and self.fixtures:
-                difficulty = self._get_fixture_difficulty(player.team, gameweek)
-                if difficulty <= 2:  # Easy fixture
-                    fixture_bonus = 0.5
-                elif difficulty >= 4:  # Hard fixture
-                    fixture_bonus = -0.5
+            # === MINUTES PLAYED ANALYSIS ===
+            minutes_bonus = 0.0
+            if player.minutes_played < 90:
+                minutes_bonus = -0.5  # Very low minutes penalty
+            elif player.minutes_played < 270:
+                minutes_bonus = -0.2  # Low minutes penalty
+            elif player.minutes_played > 720:  # 8+ full games
+                minutes_bonus = 0.1  # Consistent starter bonus
             
-            enhanced_points[player.id] = base_points + form_bonus + fixture_bonus
+            # === BONUS POINTS POTENTIAL ===
+            bonus_potential = 0.0
+            if player.bps > 100:
+                bonus_potential = 0.2  # High BPS potential
+            elif player.bps > 50:
+                bonus_potential = 0.1  # Moderate BPS potential
+            
+            # Calculate comprehensive enhanced points
+            enhanced_points[player.id] = (
+                base_points + 
+                ict_bonus + 
+                xg_xa_bonus + 
+                availability_penalty + 
+                team_strength_bonus + 
+                position_bonus + 
+                form_bonus + 
+                minutes_bonus + 
+                bonus_potential
+            )
 
-        # Objective: Maximize total enhanced predicted points
+        # Objective: Maximize total comprehensive player ability score
         prob += pulp.lpSum(
             enhanced_points[player.id] * player_vars[player.id] for player in self.players
         )
@@ -675,6 +761,148 @@ class SquadOptimizer:
         except Exception as e:
             print(f"Error enhancing player predictions: {e}")
             return players
+
+    def analyze_player_selection_factors(self, player: Player, gameweek: Optional[int] = None) -> Dict[str, float]:
+        """Analyze all factors that contribute to a player's selection potential."""
+        analysis = {
+            'base_predicted_points': player.predicted_points,
+            'ict_index_score': 0.0,
+            'expected_goals_assists': 0.0,
+            'availability_score': 0.0,
+            'team_strength_score': 0.0,
+            'position_specific_score': 0.0,
+            'form_score': 0.0,
+            'minutes_played_score': 0.0,
+            'bonus_potential_score': 0.0,
+            'total_enhanced_score': 0.0
+        }
+        
+        # ICT Index analysis
+        if player.ict_index > 100:
+            analysis['ict_index_score'] = 0.4
+        elif player.ict_index > 50:
+            analysis['ict_index_score'] = 0.2
+        elif player.ict_index < 20:
+            analysis['ict_index_score'] = -0.3
+        
+        # Expected goals/assists analysis
+        if player.expected_goals > 0.1:
+            analysis['expected_goals_assists'] += player.expected_goals * 0.3
+        if player.expected_assists > 0.1:
+            analysis['expected_goals_assists'] += player.expected_assists * 0.2
+        
+        # Availability analysis
+        if player.status != "a":
+            analysis['availability_score'] = -2.0
+        elif player.chance_of_playing_next_round is not None:
+            if player.chance_of_playing_next_round < 50:
+                analysis['availability_score'] = -1.5
+            elif player.chance_of_playing_next_round < 75:
+                analysis['availability_score'] = -0.5
+        
+        # Team strength analysis
+        if self.fixtures and gameweek:
+            team_difficulty = self._get_fixture_difficulty(player.team, gameweek)
+            if team_difficulty <= 2:
+                analysis['team_strength_score'] = 0.3
+            elif team_difficulty >= 4:
+                analysis['team_strength_score'] = -0.3
+        
+        # Position-specific analysis
+        if player.position == "GK":
+            if player.saves > 20:
+                analysis['position_specific_score'] += 0.2
+            if player.clean_sheets > 0:
+                analysis['position_specific_score'] += 0.1
+        elif player.position == "DEF":
+            if player.goals_scored > 0 or player.assists > 0:
+                analysis['position_specific_score'] += 0.3
+            if player.clean_sheets > 0:
+                analysis['position_specific_score'] += 0.2
+        elif player.position == "MID":
+            if player.creativity > 50:
+                analysis['position_specific_score'] += 0.2
+            if player.threat > 50:
+                analysis['position_specific_score'] += 0.2
+        elif player.position == "FWD":
+            if player.threat > 100:
+                analysis['position_specific_score'] += 0.3
+            if player.expected_goals > 0.2:
+                analysis['position_specific_score'] += 0.2
+        
+        # Form analysis
+        if player.form > 7.0:
+            analysis['form_score'] = 0.3
+        elif player.form > 5.0:
+            analysis['form_score'] = 0.1
+        elif player.form < 3.0:
+            analysis['form_score'] = -0.2
+        
+        # Minutes played analysis
+        if player.minutes_played < 90:
+            analysis['minutes_played_score'] = -0.5
+        elif player.minutes_played < 270:
+            analysis['minutes_played_score'] = -0.2
+        elif player.minutes_played > 720:
+            analysis['minutes_played_score'] = 0.1
+        
+        # Bonus potential analysis
+        if player.bps > 100:
+            analysis['bonus_potential_score'] = 0.2
+        elif player.bps > 50:
+            analysis['bonus_potential_score'] = 0.1
+        
+        # Calculate total enhanced score
+        analysis['total_enhanced_score'] = (
+            analysis['base_predicted_points'] +
+            analysis['ict_index_score'] +
+            analysis['expected_goals_assists'] +
+            analysis['availability_score'] +
+            analysis['team_strength_score'] +
+            analysis['position_specific_score'] +
+            analysis['form_score'] +
+            analysis['minutes_played_score'] +
+            analysis['bonus_potential_score']
+        )
+        
+        return analysis
+    
+    def get_comprehensive_player_rankings(self, gameweek: Optional[int] = None, limit: int = 20) -> List[Dict]:
+        """Get comprehensive player rankings based on all metrics, not just recent form."""
+        player_rankings = []
+        
+        for player in self.players:
+            analysis = self.analyze_player_selection_factors(player, gameweek)
+            
+            ranking_data = {
+                'player': player,
+                'rank': 0,  # Will be set after sorting
+                'name': player.name,
+                'team': player.team,
+                'position': player.position,
+                'cost': player.cost,
+                'total_enhanced_score': analysis['total_enhanced_score'],
+                'base_predicted_points': analysis['base_predicted_points'],
+                'ict_index': player.ict_index,
+                'expected_goals': player.expected_goals,
+                'expected_assists': player.expected_assists,
+                'form': player.form,
+                'minutes_played': player.minutes_played,
+                'status': player.status,
+                'chance_of_playing': player.chance_of_playing_next_round,
+                'analysis_breakdown': analysis
+            }
+            
+            player_rankings.append(ranking_data)
+        
+        # Sort by total enhanced score
+        player_rankings.sort(key=lambda x: x['total_enhanced_score'], reverse=True)
+        
+        # Add rank
+        for i, ranking in enumerate(player_rankings[:limit], 1):
+            ranking['rank'] = i
+        
+        return player_rankings[:limit]
 
 
 if __name__ == "__main__":

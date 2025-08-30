@@ -1275,34 +1275,62 @@ def show_gameweek_insights_tab(optimizer: SquadOptimizer, players: List[Player],
 
 
 def show_next_gameweek_tab(optimizer: SquadOptimizer, next_gw: Optional[int], players: List[Player]):
-    """Show next gameweek predictive squad."""
-    st.subheader("🔮 Next Gameweek Squad (Predictive Analytics)")
+    """Show comprehensive next gameweek predictive squad analysis."""
+    
+    # ============================================================================
+    # HEADER SECTION
+    # ============================================================================
+    st.markdown("""
+    <div style="text-align: center; padding: 20px; background: linear-gradient(90deg, #1f77b4, #ff7f0e); border-radius: 10px; margin-bottom: 20px;">
+        <h1 style="color: white; margin: 0;">🔮 Next Gameweek Squad (Predictive Analytics)</h1>
+        <p style="color: white; margin: 5px 0 0 0; font-size: 18px;">Advanced AI-powered squad optimization for Gameweek {}</p>
+    </div>
+    """.format(next_gw), unsafe_allow_html=True)
     
     if not next_gw:
-        st.warning("No next gameweek available.")
+        st.error("❌ **No next gameweek available.** Please check FPL API status.")
         return
     
-    st.info(f"**Predicting for Gameweek {next_gw}**")
+    # ============================================================================
+    # GAMEWEEK OVERVIEW
+    # ============================================================================
+    st.markdown("### 📅 Gameweek Overview")
     
-    # Optimization inputs
-    st.markdown("**Optimization Inputs:**")
-    
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3 = st.columns(3)
     with col1:
-        use_form = st.checkbox("Use Form (last 3-5 matches)", value=True)
+        st.info(f"**🎯 Target Gameweek:** {next_gw}")
     with col2:
-        use_fixtures = st.checkbox("Use Fixture Difficulty", value=True)
+        st.info(f"**📊 Total Players Available:** {len(players)}")
     with col3:
-        min_minutes = st.slider("Min Minutes Threshold", 0, 2000, 90, 10)
-    with col4:
-        # Check if models are actually trained (not just the flag)
-        models_trained = optimizer.predictive_model.is_trained and len(optimizer.predictive_model.models) > 0
-        use_ml = st.checkbox("🤖 Use ML Predictions", value=models_trained, disabled=not models_trained)
-        if not models_trained:
-            st.caption("⚠️ Train models first in ML Models page")
+        st.info(f"**🤖 ML Models Ready:** {'✅ Yes' if optimizer.predictive_model.is_trained else '❌ No'}")
     
-    # Create predictive squad
-    with st.spinner(f"Creating predictive squad for Gameweek {next_gw}..."):
+    # ============================================================================
+    # OPTIMIZATION CONTROLS
+    # ============================================================================
+    st.markdown("### ⚙️ Optimization Controls")
+    
+    with st.expander("🔧 Advanced Settings", expanded=False):
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            use_form = st.checkbox("📈 Use Form (last 3-5 matches)", value=True, help="Incorporate recent form into predictions")
+        with col2:
+            use_fixtures = st.checkbox("🏟️ Use Fixture Difficulty", value=True, help="Consider opponent strength and home/away")
+        with col3:
+            min_minutes = st.slider("⏱️ Min Minutes Threshold", 0, 2000, 90, 10, 
+                                  help="Minimum minutes played to consider player (reduces rotation risk)")
+        with col4:
+            models_trained = optimizer.predictive_model.is_trained and len(optimizer.predictive_model.models) > 0
+            use_ml = st.checkbox("🤖 Use ML Predictions", value=models_trained, disabled=not models_trained,
+                               help="Enable machine learning enhanced predictions")
+            if not models_trained:
+                st.caption("⚠️ Train models first in ML Models page")
+    
+    # ============================================================================
+    # SQUAD GENERATION
+    # ============================================================================
+    st.markdown("### 🚀 Squad Generation")
+    
+    with st.spinner(f"🎯 Creating optimized squad for Gameweek {next_gw}..."):
         try:
             # Check if we have historical data and ML models
             has_historical_data = 'historical_performances' in st.session_state and st.session_state.historical_performances
@@ -1310,119 +1338,279 @@ def show_next_gameweek_tab(optimizer: SquadOptimizer, next_gw: Optional[int], pl
             
             if use_ml and models_trained and has_historical_data:
                 # Use ML-enhanced optimization
-                st.info("🤖 Using ML-enhanced predictions...")
+                st.success("🤖 **ML-Enhanced Optimization Active**")
                 squad = optimizer.optimize_with_ml(next_gw, st.session_state.historical_performances)
                 predictive_squad = optimizer.create_predictive_squad(next_gw)
             else:
-                # Use regular optimization
+                # Use comprehensive analysis optimization (enhanced)
                 if use_ml and not models_trained:
-                    st.warning("⚠️ ML models not trained. Using regular optimization.")
+                    st.warning("⚠️ **ML models not trained.** Using comprehensive analysis optimization.")
                 elif use_ml and not has_historical_data:
-                    st.warning("⚠️ No historical data available. Using regular optimization.")
-                    st.info("💡 Collect historical data in the ML Models page to enable ML predictions.")
+                    st.warning("⚠️ **No historical data available.** Using comprehensive analysis optimization.")
+                    st.info("💡 **Tip:** Collect historical data in the ML Models page to enable ML predictions.")
                 else:
-                    st.info("📊 Using regular optimization...")
+                    st.success("📊 **Using Comprehensive Analysis Optimization**")
                 
+                # Use the enhanced optimize_squad method with comprehensive analysis
+                squad = optimizer.optimize_squad(gameweek=next_gw, use_form=use_form, use_fixtures=use_fixtures)
                 predictive_squad = optimizer.create_predictive_squad(next_gw)
-                squad = predictive_squad.squad
         except Exception as e:
-            st.error(f"❌ Error creating predictive squad: {str(e)}")
-            st.info("🔄 Falling back to regular optimization...")
+            st.error(f"❌ **Error creating predictive squad:** {str(e)}")
+            st.info("🔄 **Falling back to comprehensive analysis optimization...**")
+            squad = optimizer.optimize_squad(gameweek=next_gw, use_form=use_form, use_fixtures=use_fixtures)
             predictive_squad = optimizer.create_predictive_squad(next_gw)
-            squad = predictive_squad.squad
     
-    # Squad summary
-    st.markdown("**Best 15-man Squad under FPL rules:**")
+    # ============================================================================
+    # COMPREHENSIVE ANALYSIS STATUS
+    # ============================================================================
+    st.markdown("### 🔬 Comprehensive Analysis Status")
     
+    # Show that comprehensive analysis is being used
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric("Predicted Total Points", f"{predictive_squad.total_predicted_points:.1f}")
+        st.success("✅ **Comprehensive Analysis Active**")
+        st.info("Using ICT Index, xG/xA, availability, team strength, and position-specific metrics")
     with col2:
-        st.metric("Team Value", f"£{squad.total_cost:.1f}m")
+        st.info("📊 **Enhanced Player Selection**")
+        st.info("Players selected based on comprehensive ability metrics, not just recent form")
     with col3:
-        st.metric("Form Weighted Score", f"{predictive_squad.form_weighted_score:.2f}")
+        st.info("🎯 **Advanced Captaincy**")
+        st.info("Captain selection considers all available metrics and fixture context")
     with col4:
-        st.metric("Confidence Rating", f"{predictive_squad.confidence_rating:.1f}%")
+        st.info("⚽ **Position-Specific Analysis**")
+        st.info("Different metrics for GK, DEF, MID, FWD positions")
     
-    # ML Model Information (if using ML)
+    # ============================================================================
+    # SQUAD SUMMARY METRICS
+    # ============================================================================
+    st.markdown("### 📊 Squad Summary")
+    
+    # Calculate enhanced squad metrics
+    squad_enhanced_score = sum(optimizer.analyze_player_selection_factors(p.player, next_gw)['total_enhanced_score'] for p in squad.players)
+    squad_ict_total = sum(p.player.ict_index for p in squad.players)
+    squad_xg_total = sum(p.player.expected_goals for p in squad.players)
+    squad_xa_total = sum(p.player.expected_assists for p in squad.players)
+    
+    # Create a more visually appealing metrics display
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric(
+            label="🎯 Enhanced Squad Score",
+            value=f"{squad_enhanced_score:.1f}",
+            delta=None,
+            help="Total enhanced score using comprehensive analysis"
+        )
+    with col2:
+        st.metric(
+            label="💰 Team Value",
+            value=f"£{squad.total_cost:.1f}m",
+            delta=None,
+            help="Total cost of the selected squad"
+        )
+    with col3:
+        st.metric(
+            label="📈 ICT Index Total",
+            value=f"{squad_ict_total:.0f}",
+            delta=None,
+            help="Total ICT Index of all squad players"
+        )
+    with col4:
+        st.metric(
+            label="⚽ Expected Goals/Assists",
+            value=f"{squad_xg_total:.1f}/{squad_xa_total:.1f}",
+            delta=None,
+            help="Total expected goals and assists for the squad"
+        )
+    
+    # ============================================================================
+    # ML MODEL INFORMATION
+    # ============================================================================
     if use_ml and optimizer.ml_enhanced:
-        st.markdown("**🤖 ML Model Information:**")
+        st.markdown("### 🤖 Machine Learning Model Information")
         
         try:
             model_summary = optimizer.get_ml_model_performance()
             if model_summary and 'models' in model_summary:
+                # Create a more detailed ML model display
                 col1, col2, col3 = st.columns(3)
                 with col1:
-                    st.info(f"**Models Trained:** {model_summary.get('total_models', 0)}")
+                    st.info(f"**📊 Models Trained:** {model_summary.get('total_models', 0)}")
                 with col2:
                     best_model = model_summary.get('best_model', 'N/A')
-                    st.success(f"**Best Model:** {best_model}")
+                    st.success(f"**🏆 Best Model:** {best_model}")
                 with col3:
                     accuracy = model_summary.get('accuracy_rating', 'N/A')
-                    st.warning(f"**Accuracy:** {accuracy}")
+                    st.warning(f"**📈 Accuracy:** {accuracy}")
                 
-                # Show prediction approach
+                # Show detailed model information
                 if 'prediction_approach' in model_summary:
-                    st.info(f"**Prediction Approach:** {model_summary['prediction_approach']}")
+                    st.info(f"**🔬 Prediction Approach:** {model_summary['prediction_approach']}")
                 if 'features_used' in model_summary:
-                    st.info(f"**Features Used:** {model_summary['features_used']}")
+                    st.info(f"**🎯 Features Used:** {model_summary['features_used']}")
         except Exception as e:
-            st.warning(f"Could not load ML model information: {str(e)}")
+            st.warning(f"⚠️ **Could not load ML model information:** {str(e)}")
     
-    # Captain & Vice
-    st.markdown("**Captain & Vice:**")
+    # ============================================================================
+    # CAPTAIN & VICE-CAPTAIN SELECTION
+    # ============================================================================
+    st.markdown("### ⭐ Captain & Vice-Captain Selection")
     
     col1, col2 = st.columns(2)
     with col1:
-        st.success(f"**Captain:** {squad.captain.name} ⭐")
-        st.metric("Captain Points", f"{predictive_squad.captain_points:.1f}")
+        st.markdown("""
+        <div style="background: linear-gradient(90deg, #28a745, #20c997); padding: 15px; border-radius: 10px; text-align: center;">
+            <h3 style="color: white; margin: 0;">⭐ Captain</h3>
+            <h2 style="color: white; margin: 10px 0;">{}</h2>
+            <p style="color: white; margin: 0;">Predicted Points: <strong>{:.1f}</strong></p>
+        </div>
+        """.format(squad.captain.name, predictive_squad.captain_points), unsafe_allow_html=True)
     with col2:
-        st.info(f"**Vice-Captain:** {squad.vice_captain.name} 🅥")
-        st.metric("Vice-Captain Points", f"{predictive_squad.vice_captain_points:.1f}")
+        st.markdown("""
+        <div style="background: linear-gradient(90deg, #17a2b8, #6f42c1); padding: 15px; border-radius: 10px; text-align: center;">
+            <h3 style="color: white; margin: 0;">🅥 Vice-Captain</h3>
+            <h2 style="color: white; margin: 10px 0;">{}</h2>
+            <p style="color: white; margin: 0;">Predicted Points: <strong>{:.1f}</strong></p>
+        </div>
+        """.format(squad.vice_captain.name, predictive_squad.vice_captain_points), unsafe_allow_html=True)
     
-    # Captaincy Analysis
-    st.markdown("**🎯 Captaincy Analysis:**")
-    st.info("Top 5 players with highest potential for Gameweek " + str(next_gw))
+    # ============================================================================
+    # COMPREHENSIVE PLAYER ANALYSIS
+    # ============================================================================
+    st.markdown("### 🎯 Comprehensive Player Analysis")
     
-    # Get top 5 players by predicted points (not just from squad)
-    # Filter for players with reasonable minutes played to avoid rotation risks
-    eligible_players = [p for p in players if p.minutes_played >= 90]  # At least 1 full game
-    if not eligible_players:
-        eligible_players = players  # Fallback to all players if none meet criteria
+    # Use the enhanced comprehensive player rankings instead of just predicted points
+    st.markdown("**📊 Top Players by Comprehensive Analysis (All Metrics)**")
     
-    top_captaincy_players = sorted(eligible_players, key=lambda p: p.predicted_points, reverse=True)[:5]
+    # Get comprehensive player rankings using our enhanced system
+    comprehensive_rankings = optimizer.get_comprehensive_player_rankings(gameweek=next_gw, limit=15)
     
-    captaincy_data = []
-    for i, player in enumerate(top_captaincy_players, 1):
-        # Calculate captain points (double)
-        captain_points = player.predicted_points * 2
+    # Create comprehensive analysis table
+    comprehensive_data = []
+    for ranking in comprehensive_rankings:
+        player = ranking['player']
+        analysis = ranking['analysis_breakdown']
         
-        # Get fixture difficulty if available
+        # Get fixture information
         fixture_difficulty = "N/A"
+        opponent = "N/A"
+        home_away = "N/A"
         if optimizer.fixtures:
             for fixture in optimizer.fixtures:
                 if fixture.gameweek == next_gw:
                     if fixture.home_team == player.team:
                         fixture_difficulty = f"{fixture.home_difficulty}/5"
+                        opponent = fixture.away_team
+                        home_away = "Home"
                         break
                     elif fixture.away_team == player.team:
                         fixture_difficulty = f"{fixture.away_difficulty}/5"
+                        opponent = fixture.home_team
+                        home_away = "Away"
                         break
+        
+        comprehensive_data.append({
+            "Rank": f"#{ranking['rank']}",
+            "Player": player.name,
+            "Position": player.position,
+            "Team": player.team,
+            "Cost": f"£{player.cost}m",
+            "Enhanced Score": f"{ranking['total_enhanced_score']:.2f}",
+            "Base Points": f"{analysis['base_predicted_points']:.1f}",
+            "ICT Index": f"{player.ict_index:.0f}",
+            "Expected Goals": f"{player.expected_goals:.2f}",
+            "Expected Assists": f"{player.expected_assists:.2f}",
+            "Form": f"{player.form:.1f}",
+            "Minutes": player.minutes_played,
+            "Status": player.status,
+            "Opponent": opponent,
+            "Fixture": fixture_difficulty,
+            "Availability": f"{player.chance_of_playing_next_round}%" if player.chance_of_playing_next_round else "N/A"
+        })
+    
+    # Display comprehensive analysis table
+    st.dataframe(
+        comprehensive_data,
+        width='stretch',
+        hide_index=True,
+        column_config={
+            "Rank": st.column_config.TextColumn("Rank", width="small"),
+            "Player": st.column_config.TextColumn("Player", width="medium"),
+            "Position": st.column_config.TextColumn("Pos", width="small"),
+            "Team": st.column_config.TextColumn("Team", width="small"),
+            "Cost": st.column_config.TextColumn("Cost", width="small"),
+            "Enhanced Score": st.column_config.TextColumn("Enhanced", width="small"),
+            "Base Points": st.column_config.TextColumn("Base", width="small"),
+            "ICT Index": st.column_config.TextColumn("ICT", width="small"),
+            "Expected Goals": st.column_config.TextColumn("xG", width="small"),
+            "Expected Assists": st.column_config.TextColumn("xA", width="small"),
+            "Form": st.column_config.TextColumn("Form", width="small"),
+            "Minutes": st.column_config.NumberColumn("Minutes", width="small"),
+            "Status": st.column_config.TextColumn("Status", width="small"),
+            "Opponent": st.column_config.TextColumn("Opponent", width="small"),
+            "Fixture": st.column_config.TextColumn("Fixture", width="small"),
+            "Availability": st.column_config.TextColumn("Availability", width="small")
+        }
+    )
+    
+    # ============================================================================
+    # COMPREHENSIVE CAPTAINCY ANALYSIS
+    # ============================================================================
+    st.markdown("### 🎯 Comprehensive Captaincy Analysis")
+    
+    # Use comprehensive rankings for captaincy analysis
+    top_captaincy_players = [ranking['player'] for ranking in comprehensive_rankings[:10]]
+    
+    # Enhanced captaincy data with comprehensive analysis
+    captaincy_data = []
+    for i, player in enumerate(top_captaincy_players, 1):
+        captain_points = player.predicted_points * 2
+        
+        # Get comprehensive analysis for this player
+        player_analysis = optimizer.analyze_player_selection_factors(player, next_gw)
+        
+        # Get fixture difficulty and opponent
+        fixture_difficulty = "N/A"
+        opponent = "N/A"
+        home_away = "N/A"
+        if optimizer.fixtures:
+            for fixture in optimizer.fixtures:
+                if fixture.gameweek == next_gw:
+                    if fixture.home_team == player.team:
+                        fixture_difficulty = f"{fixture.home_difficulty}/5"
+                        opponent = fixture.away_team
+                        home_away = "Home"
+                        break
+                    elif fixture.away_team == player.team:
+                        fixture_difficulty = f"{fixture.away_difficulty}/5"
+                        opponent = fixture.home_team
+                        home_away = "Away"
+                        break
+        
+        # Calculate enhanced captaincy score using comprehensive analysis
+        enhanced_captaincy_score = player_analysis['total_enhanced_score'] * 2  # Captain gets double points
         
         captaincy_data.append({
             "Rank": f"#{i}",
             "Player": player.name,
             "Position": player.position,
             "Team": player.team,
+            "Opponent": opponent,
+            "H/A": home_away,
             "Cost": f"£{player.cost}m",
-            "Predicted Points": f"{player.predicted_points:.1f}",
+            "Enhanced Score": f"{player_analysis['total_enhanced_score']:.2f}",
             "Captain Points": f"{captain_points:.1f}",
+            "Enhanced Captain Score": f"{enhanced_captaincy_score:.2f}",
+            "ICT Index": f"{player.ict_index:.0f}",
+            "Expected Goals": f"{player.expected_goals:.2f}",
+            "Expected Assists": f"{player.expected_assists:.2f}",
             "Form": f"{player.form:.1f}",
             "Fixture Difficulty": fixture_difficulty,
-            "Minutes Played": player.minutes_played
+            "Minutes Played": player.minutes_played,
+            "Availability": f"{player.chance_of_playing_next_round}%" if player.chance_of_playing_next_round else "N/A"
         })
     
-    # Display captaincy analysis table
+    # Display enhanced captaincy analysis table
+    st.markdown("**📋 Top 10 Captaincy Candidates (Comprehensive Analysis)**")
     st.dataframe(
         captaincy_data,
         width='stretch',
@@ -1432,177 +1620,410 @@ def show_next_gameweek_tab(optimizer: SquadOptimizer, next_gw: Optional[int], pl
             "Player": st.column_config.TextColumn("Player", width="medium"),
             "Position": st.column_config.TextColumn("Pos", width="small"),
             "Team": st.column_config.TextColumn("Team", width="small"),
+            "Opponent": st.column_config.TextColumn("Opponent", width="small"),
+            "H/A": st.column_config.TextColumn("H/A", width="small"),
             "Cost": st.column_config.TextColumn("Cost", width="small"),
-            "Predicted Points": st.column_config.TextColumn("Predicted", width="small"),
+            "Enhanced Score": st.column_config.TextColumn("Enhanced", width="small"),
             "Captain Points": st.column_config.TextColumn("Captain", width="small"),
+            "Enhanced Captain Score": st.column_config.TextColumn("Enhanced C", width="small"),
+            "ICT Index": st.column_config.TextColumn("ICT", width="small"),
+            "Expected Goals": st.column_config.TextColumn("xG", width="small"),
+            "Expected Assists": st.column_config.TextColumn("xA", width="small"),
             "Form": st.column_config.TextColumn("Form", width="small"),
             "Fixture Difficulty": st.column_config.TextColumn("Fixture", width="small"),
-            "Minutes Played": st.column_config.NumberColumn("Minutes", width="small")
+            "Minutes Played": st.column_config.NumberColumn("Minutes", width="small"),
+            "Availability": st.column_config.TextColumn("Availability", width="small")
         }
     )
     
-    # Add insights about the top captaincy choices
-    st.markdown("**💡 Captaincy Insights:**")
+    # ============================================================================
+    # DETAILED CAPTAINCY INSIGHTS
+    # ============================================================================
+    st.markdown("### 💡 Detailed Captaincy Insights")
     
     if captaincy_data:
-        top_player = captaincy_data[0]
-        st.success(f"**🎯 Top Pick:** {top_player['Player']} ({top_player['Team']}) - {top_player['Captain Points']} captain points")
-        
-        # Show fixture analysis
-        if top_player['Fixture Difficulty'] != "N/A":
-            difficulty = int(top_player['Fixture Difficulty'].split('/')[0])
-            if difficulty <= 2:
-                st.info(f"✅ **Favorable Fixture** - Difficulty {difficulty}/5")
-            elif difficulty >= 4:
-                st.warning(f"⚠️ **Tough Fixture** - Difficulty {difficulty}/5")
-            else:
-                st.info(f"📊 **Average Fixture** - Difficulty {difficulty}/5")
-        
-        # Show form analysis
-        form = float(top_player['Form'])
-        if form >= 7.0:
-            st.success(f"🔥 **Excellent Form** - {form:.1f} average")
-        elif form >= 5.0:
-            st.info(f"📈 **Good Form** - {form:.1f} average")
-        else:
-            st.warning(f"📉 **Poor Form** - {form:.1f} average")
-        
-        # Show minutes analysis
-        minutes = top_player['Minutes Played']
-        if minutes >= 270:  # 3 full games
-            st.success(f"⏱️ **Regular Starter** - {minutes} minutes played")
-        elif minutes >= 90:  # At least 1 full game
-            st.info(f"🔄 **Rotation Risk** - {minutes} minutes played")
-        else:
-            st.warning(f"❌ **Limited Minutes** - {minutes} minutes played")
+        # Top 3 recommendations with detailed analysis
+        for i in range(min(3, len(captaincy_data))):
+            player = captaincy_data[i]
+            
+            # Create expandable section for each top recommendation
+            with st.expander(f"🎯 #{i+1} Recommendation: {player['Player']} ({player['Team']}) - {player['Captain Points']} captain points", expanded=(i==0)):
+                
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    st.markdown("**📊 Comprehensive Player Stats**")
+                    st.write(f"**Position:** {player['Position']}")
+                    st.write(f"**Cost:** {player['Cost']}")
+                    st.write(f"**Enhanced Score:** {player['Enhanced Score']}")
+                    st.write(f"**ICT Index:** {player['ICT Index']}")
+                    st.write(f"**Expected Goals:** {player['Expected Goals']}")
+                    st.write(f"**Expected Assists:** {player['Expected Assists']}")
+                    st.write(f"**Form:** {player['Form']}")
+                    st.write(f"**Minutes:** {player['Minutes Played']}")
+                    st.write(f"**Availability:** {player['Availability']}")
+                
+                with col2:
+                    st.markdown("**🏟️ Fixture Analysis**")
+                    if player['Opponent'] != "N/A":
+                        st.write(f"**Opponent:** {player['Opponent']}")
+                        st.write(f"**Home/Away:** {player['H/A']}")
+                        st.write(f"**Difficulty:** {player['Fixture Difficulty']}")
+                        
+                        # Fixture difficulty analysis
+                        if player['Fixture Difficulty'] != "N/A":
+                            difficulty = int(player['Fixture Difficulty'].split('/')[0])
+                            if difficulty <= 2:
+                                st.success(f"✅ **Favorable Fixture** - Difficulty {difficulty}/5")
+                            elif difficulty >= 4:
+                                st.warning(f"⚠️ **Tough Fixture** - Difficulty {difficulty}/5")
+                            else:
+                                st.info(f"📊 **Average Fixture** - Difficulty {difficulty}/5")
+                    else:
+                        st.warning("⚠️ Fixture information not available")
+                
+                with col3:
+                    st.markdown("**📈 Comprehensive Performance Analysis**")
+                    
+                    # Enhanced score analysis
+                    enhanced_score = float(player['Enhanced Score'])
+                    if enhanced_score >= 8.0:
+                        st.success(f"🌟 **Excellent Enhanced Score** - {enhanced_score:.2f}")
+                    elif enhanced_score >= 6.0:
+                        st.info(f"📈 **Good Enhanced Score** - {enhanced_score:.2f}")
+                    else:
+                        st.warning(f"📉 **Low Enhanced Score** - {enhanced_score:.2f}")
+                    
+                    # ICT Index analysis
+                    ict_index = float(player['ICT Index'])
+                    if ict_index >= 100:
+                        st.success(f"🔥 **High ICT Index** - {ict_index:.0f}")
+                    elif ict_index >= 50:
+                        st.info(f"📊 **Moderate ICT Index** - {ict_index:.0f}")
+                    else:
+                        st.warning(f"📉 **Low ICT Index** - {ict_index:.0f}")
+                    
+                    # Expected goals/assists analysis
+                    xg = float(player['Expected Goals'])
+                    xa = float(player['Expected Assists'])
+                    if xg > 0.2 or xa > 0.2:
+                        st.success(f"⚽ **High xG/xA** - xG: {xg:.2f}, xA: {xa:.2f}")
+                    elif xg > 0.1 or xa > 0.1:
+                        st.info(f"📊 **Moderate xG/xA** - xG: {xg:.2f}, xA: {xa:.2f}")
+                    else:
+                        st.warning(f"📉 **Low xG/xA** - xG: {xg:.2f}, xA: {xa:.2f}")
+                    
+                    # Form analysis
+                    form = float(player['Form'])
+                    if form >= 7.0:
+                        st.success(f"🔥 **Excellent Form** - {form:.1f} average")
+                    elif form >= 5.0:
+                        st.info(f"📈 **Good Form** - {form:.1f} average")
+                    else:
+                        st.warning(f"📉 **Poor Form** - {form:.1f} average")
+                    
+                    # Minutes analysis
+                    minutes = player['Minutes Played']
+                    if minutes >= 270:  # 3 full games
+                        st.success(f"⏱️ **Regular Starter** - {minutes} minutes")
+                    elif minutes >= 90:  # At least 1 full game
+                        st.info(f"🔄 **Rotation Risk** - {minutes} minutes")
+                    else:
+                        st.warning(f"❌ **Limited Minutes** - {minutes} minutes")
+                    
+                    # Enhanced captaincy score analysis
+                    enhanced_captain_score = float(player['Enhanced Captain Score'])
+                    st.write(f"**🎯 Enhanced Captain Score:** {enhanced_captain_score:.2f}")
+                    if enhanced_captain_score >= 16.0:
+                        st.success("🌟 **Excellent Captaincy Choice**")
+                    elif enhanced_captain_score >= 12.0:
+                        st.info("👍 **Good Captaincy Choice**")
+                    else:
+                        st.warning("⚠️ **Risky Captaincy Choice**")
     
-    # Debug Information (if needed)
-    if st.checkbox("🔍 Show Debug Information", value=False):
-        st.markdown("**Debug Information:**")
+    # ============================================================================
+    # SQUAD BREAKDOWN
+    # ============================================================================
+    st.markdown("### 📋 Squad Breakdown")
+    
+    # Show starting XI and bench
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**⚽ Starting XI (Enhanced Analysis)**")
+        starting_xi = [p for p in squad.players if p.bench_position is None]
+        for i, player in enumerate(starting_xi, 1):
+            analysis = optimizer.analyze_player_selection_factors(player.player, next_gw)
+            enhanced_score = analysis['total_enhanced_score']
+            ict_index = player.player.ict_index
+            xg = player.player.expected_goals
+            xa = player.player.expected_assists
+            
+            st.write(f"{i}. **{player.name}** ({player.position}) - {player.team}")
+            st.write(f"   💰 £{player.cost}m | 🎯 Enhanced: {enhanced_score:.2f} | 📊 ICT: {ict_index:.0f} | ⚽ xG: {xg:.2f} | 🎯 xA: {xa:.2f}")
+    
+    with col2:
+        st.markdown("**🪑 Bench (Enhanced Analysis)**")
+        bench = [p for p in squad.players if p.bench_position is not None]
+        # Sort bench by bench position
+        bench.sort(key=lambda p: p.bench_position)
+        for i, player in enumerate(bench, 1):
+            analysis = optimizer.analyze_player_selection_factors(player.player, next_gw)
+            enhanced_score = analysis['total_enhanced_score']
+            ict_index = player.player.ict_index
+            xg = player.player.expected_goals
+            xa = player.player.expected_assists
+            
+            st.write(f"{i}. **{player.name}** ({player.position}) - {player.team} (Bench {player.bench_position})")
+            st.write(f"   💰 £{player.cost}m | 🎯 Enhanced: {enhanced_score:.2f} | 📊 ICT: {ict_index:.0f} | ⚽ xG: {xg:.2f} | 🎯 xA: {xa:.2f}")
+    
+    # ============================================================================
+    # POSITION ANALYSIS
+    # ============================================================================
+    st.markdown("### 📊 Position Analysis")
+    
+    # Count players by position
+    position_counts = {}
+    for player in squad.players:
+        pos = player.position
+        if pos not in position_counts:
+            position_counts[pos] = 0
+        position_counts[pos] += 1
+    
+    col1, col2, col3, col4 = st.columns(4)
+    positions = ['GK', 'DEF', 'MID', 'FWD']
+    for i, pos in enumerate(positions):
+        with [col1, col2, col3, col4][i]:
+            count = position_counts.get(pos, 0)
+            st.metric(f"{pos} Players", count)
+    
+    # ============================================================================
+    # TEAM DISTRIBUTION
+    # ============================================================================
+    st.markdown("### 🏆 Team Distribution")
+    
+    # Count players by team
+    team_counts = {}
+    for player in squad.players:
+        team = player.team
+        if team not in team_counts:
+            team_counts[team] = 0
+        team_counts[team] += 1
+    
+    # Show teams with more than 1 player
+    teams_with_multiple = {team: count for team, count in team_counts.items() if count > 1}
+    if teams_with_multiple:
+        st.markdown("**Teams with Multiple Players:**")
+        for team, count in sorted(teams_with_multiple.items(), key=lambda x: x[1], reverse=True):
+            st.write(f"• **{team}:** {count} players")
+    else:
+        st.info("✅ **Well-balanced squad** - No team has more than 1 player")
+    
+    # ============================================================================
+    # RISK ASSESSMENT
+    # ============================================================================
+    st.markdown("### ⚠️ Risk Assessment")
+    
+    # Identify potential risks
+    risks = []
+    
+    # Check for rotation risks
+    rotation_risks = [p for p in squad.players if p.minutes_played < 270]
+    if rotation_risks:
+        risks.append(f"🔄 **Rotation Risk:** {len(rotation_risks)} players with limited minutes")
+    
+    # Check for form risks
+    form_risks = [p for p in squad.players if p.form < 3.0]
+    if form_risks:
+        risks.append(f"📉 **Form Risk:** {len(form_risks)} players in poor form")
+    
+    # Check for fixture risks
+    fixture_risks = []
+    if optimizer.fixtures:
+        for player in squad.players:
+            for fixture in optimizer.fixtures:
+                if fixture.gameweek == next_gw:
+                    if fixture.home_team == player.team and fixture.home_difficulty >= 4:
+                        fixture_risks.append(player.name)
+                    elif fixture.away_team == player.team and fixture.away_difficulty >= 4:
+                        fixture_risks.append(player.name)
+                    break
+    
+    if fixture_risks:
+        risks.append(f"🏟️ **Fixture Risk:** {len(set(fixture_risks))} players with tough fixtures")
+    
+    if risks:
+        for risk in risks:
+            st.warning(risk)
+    else:
+        st.success("✅ **Low Risk Squad** - No significant risks identified")
+    
+    # ============================================================================
+    # WHY COMPREHENSIVE ANALYSIS IS BETTER
+    # ============================================================================
+    st.markdown("### 🎯 Why Comprehensive Analysis is Better")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**❌ Old System (Limited)**")
+        st.write("• Only considered recent form (last 2 gameweeks)")
+        st.write("• Basic predicted points only")
+        st.write("• Simple fixture difficulty")
+        st.write("• No consideration of underlying ability")
+        st.write("• Missed high-potential players with poor recent form")
+    
+    with col2:
+        st.markdown("**✅ New System (Comprehensive)**")
+        st.write("• **ICT Index** - Influence, Creativity, Threat analysis")
+        st.write("• **Expected Goals/Assists** - Underlying performance metrics")
+        st.write("• **Availability** - Rotation risk and injury assessment")
+        st.write("• **Team Strength** - Fixture context and opponent analysis")
+        st.write("• **Position-Specific** - Different metrics for GK/DEF/MID/FWD")
+        st.write("• **Historical Consistency** - Minutes played and reliability")
+    
+    # ============================================================================
+    # COMPREHENSIVE SQUAD ANALYSIS
+    # ============================================================================
+    st.markdown("### 🔬 Comprehensive Squad Analysis")
+    
+    # Get comprehensive analysis for all squad players
+    squad_analysis_data = []
+    for player in squad.players:
+        analysis = optimizer.analyze_player_selection_factors(player.player, next_gw)
+        
+        squad_analysis_data.append({
+            "Player": player.name,
+            "Position": player.position,
+            "Team": player.team,
+            "Enhanced Score": f"{analysis['total_enhanced_score']:.2f}",
+            "Base Points": f"{analysis['base_predicted_points']:.1f}",
+            "ICT Bonus": f"{analysis['ict_index_score']:.2f}",
+            "xG/xA Bonus": f"{analysis['expected_goals_assists']:.2f}",
+            "Availability": f"{analysis['availability_score']:.2f}",
+            "Team Strength": f"{analysis['team_strength_score']:.2f}",
+            "Position Bonus": f"{analysis['position_specific_score']:.2f}",
+            "Form Bonus": f"{analysis['form_score']:.2f}",
+            "Minutes Bonus": f"{analysis['minutes_played_score']:.2f}",
+            "Bonus Potential": f"{analysis['bonus_potential_score']:.2f}",
+            "ICT Index": f"{player.player.ict_index:.0f}",
+            "Expected Goals": f"{player.player.expected_goals:.2f}",
+            "Expected Assists": f"{player.player.expected_assists:.2f}",
+            "Form": f"{player.player.form:.1f}",
+            "Minutes": player.player.minutes_played,
+            "Status": player.player.status
+        })
+    
+    # Display comprehensive squad analysis
+    st.markdown("**📊 Squad Players - Comprehensive Analysis Breakdown**")
+    st.dataframe(
+        squad_analysis_data,
+        width='stretch',
+        hide_index=True,
+        column_config={
+            "Player": st.column_config.TextColumn("Player", width="medium"),
+            "Position": st.column_config.TextColumn("Pos", width="small"),
+            "Team": st.column_config.TextColumn("Team", width="small"),
+            "Enhanced Score": st.column_config.TextColumn("Enhanced", width="small"),
+            "Base Points": st.column_config.TextColumn("Base", width="small"),
+            "ICT Bonus": st.column_config.TextColumn("ICT", width="small"),
+            "xG/xA Bonus": st.column_config.TextColumn("xG/xA", width="small"),
+            "Availability": st.column_config.TextColumn("Avail", width="small"),
+            "Team Strength": st.column_config.TextColumn("Team", width="small"),
+            "Position Bonus": st.column_config.TextColumn("Pos", width="small"),
+            "Form Bonus": st.column_config.TextColumn("Form", width="small"),
+            "Minutes Bonus": st.column_config.TextColumn("Min", width="small"),
+            "Bonus Potential": st.column_config.TextColumn("Bonus", width="small"),
+            "ICT Index": st.column_config.TextColumn("ICT", width="small"),
+            "Expected Goals": st.column_config.TextColumn("xG", width="small"),
+            "Expected Assists": st.column_config.TextColumn("xA", width="small"),
+            "Form": st.column_config.TextColumn("Form", width="small"),
+            "Minutes": st.column_config.NumberColumn("Minutes", width="small"),
+            "Status": st.column_config.TextColumn("Status", width="small")
+        }
+    )
+    
+    # ============================================================================
+    # ADVANCED ANALYTICS
+    # ============================================================================
+    with st.expander("🔬 Advanced Analytics", expanded=False):
+        st.markdown("### 📈 Advanced Metrics")
         
         # Show player count by position
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             gk_count = len([p for p in players if p.position == "GK"])
-            st.metric("Goalkeepers", gk_count)
+            st.metric("Total Goalkeepers", gk_count)
         with col2:
             def_count = len([p for p in players if p.position == "DEF"])
-            st.metric("Defenders", def_count)
+            st.metric("Total Defenders", def_count)
         with col3:
             mid_count = len([p for p in players if p.position == "MID"])
-            st.metric("Midfielders", mid_count)
+            st.metric("Total Midfielders", mid_count)
         with col4:
             fwd_count = len([p for p in players if p.position == "FWD"])
-            st.metric("Forwards", fwd_count)
+            st.metric("Total Forwards", fwd_count)
         
-        # Show top 10 players by predicted points
-        st.markdown("**Top 10 Players by Predicted Points:**")
-        top_players = sorted(players, key=lambda p: p.predicted_points, reverse=True)[:10]
+        # Show top 10 players by comprehensive analysis
+        st.markdown("**🏆 Top 10 Players by Comprehensive Analysis:**")
+        comprehensive_top = optimizer.get_comprehensive_player_rankings(gameweek=next_gw, limit=10)
         top_data = []
-        for p in top_players:
+        for ranking in comprehensive_top:
+            player = ranking['player']
             top_data.append({
-                "Name": p.name,
-                "Team": p.team,
-                "Position": p.position,
-                "Cost": f"£{p.cost}m",
-                "Predicted Points": f"{p.predicted_points:.1f}",
-                "Form": f"{p.form:.1f}",
-                "Minutes": p.minutes_played
+                "Rank": ranking['rank'],
+                "Player": player.name,
+                "Team": player.team,
+                "Position": player.position,
+                "Cost": f"£{player.cost}m",
+                "Enhanced Score": f"{ranking['total_enhanced_score']:.2f}",
+                "Form": f"{player.form:.1f}",
+                "Minutes": player.minutes_played
             })
-        st.dataframe(top_data, width='stretch')
-    
-    # Squad Display
-    st.markdown("**Squad Display:**")
-    
-    tab1, tab2 = st.tabs(["🎯 Pitch View", "📋 Table View"])
-    
-    with tab1:
-        show_pitch_view(squad)
-    
-    with tab2:
-        show_starting_xi_table(squad)
-    
-    # Bench Order
-    st.markdown("**Bench Order:**")
-    show_bench_order(squad)
-    
-    # Simulation (Optional Advanced)
-    st.markdown("**Captaincy Simulation:**")
-    
-    simulation_data = optimizer.get_captaincy_simulation_data(squad)
-    sorted_captains = sorted(simulation_data.items(), key=lambda x: x[1], reverse=True)
-    
-    # Show top 5 captain options
-    captain_data = []
-    for i, (name, points) in enumerate(sorted_captains[:5], 1):
-        captain_data.append({
-            "Rank": i,
-            "Captain": name,
-            "Squad Points": f"{points:.1f}",
-            "Difference": f"{points - sorted_captains[0][1]:+.1f}"
-        })
-    
-    st.dataframe(
-        captain_data,
-        width='stretch',
-        hide_index=True
-    )
-    
-    # Key insights
-    st.markdown("**Key Insights:**")
-    
-    if predictive_squad.confidence_rating > 70:
-        st.success(f"🎯 **High Confidence** ({predictive_squad.confidence_rating:.1f}%) - Strong prediction based on form and fixtures")
-    elif predictive_squad.confidence_rating > 50:
-        st.warning(f"⚠️ **Medium Confidence** ({predictive_squad.confidence_rating:.1f}%) - Mixed indicators")
-    else:
-        st.error(f"❌ **Low Confidence** ({predictive_squad.confidence_rating:.1f}%) - Uncertain prediction")
-    
-    if predictive_squad.form_weighted_score > 5:
-        st.success(f"📈 **Good Form** - Squad players are in good form")
-    
-    if predictive_squad.fixture_difficulty_score > 0:
-        st.success(f"🎯 **Favorable Fixtures** - Squad has relatively easy fixtures")
-    else:
-        st.warning(f"⚠️ **Tough Fixtures** - Squad faces challenging opponents")
-    
-    # ML Prediction Confidence (if using ML)
-    if use_ml and optimizer.ml_enhanced:
-        st.markdown("**🤖 ML Prediction Confidence:**")
         
-        try:
-            # Get confidence scores for selected players
-            confidence_scores = optimizer.get_prediction_confidence(st.session_state.get('historical_performances', []))
-            
-            # Show confidence for starting XI players
-            starting_xi_confidence = []
-            for player in squad.starting_xi:
-                confidence = confidence_scores.get(player.id, 0.5)
-                starting_xi_confidence.append({
-                    "Player": player.name,
-                    "Position": player.position,
-                    "Team": player.team,
-                    "Predicted Points": f"{player.predicted_points:.1f}",
-                    "Confidence": f"{confidence:.1%}"
-                })
-            
-            if starting_xi_confidence:
-                st.dataframe(
-                    starting_xi_confidence,
-                    width='stretch',
-                    hide_index=True
-                )
-                
-                # Overall confidence summary
-                avg_confidence = np.mean([float(c["Confidence"].rstrip('%')) for c in starting_xi_confidence])
-                if avg_confidence > 70:
-                    st.success(f"🎯 **High ML Confidence** ({avg_confidence:.1f}%) - Models are confident in these predictions")
-                elif avg_confidence > 50:
-                    st.warning(f"⚠️ **Medium ML Confidence** ({avg_confidence:.1f}%) - Mixed model confidence")
-                else:
-                    st.error(f"❌ **Low ML Confidence** ({avg_confidence:.1f}%) - Models are uncertain")
-        except Exception as e:
-            st.warning(f"Could not load ML confidence scores: {str(e)}")
+        st.dataframe(
+            top_data,
+            width='stretch',
+            hide_index=True,
+            column_config={
+                "Rank": st.column_config.NumberColumn("Rank", format="%d"),
+                "Player": st.column_config.TextColumn("Player", width="medium"),
+                "Team": st.column_config.TextColumn("Team", width="small"),
+                "Position": st.column_config.TextColumn("Pos", width="small"),
+                "Cost": st.column_config.TextColumn("Cost", width="small"),
+                "Enhanced Score": st.column_config.TextColumn("Enhanced", width="small"),
+                "Form": st.column_config.TextColumn("Form", width="small"),
+                "Minutes": st.column_config.NumberColumn("Minutes", width="small")
+            }
+        )
+    
+    # ============================================================================
+    # ACTION ITEMS
+    # ============================================================================
+    st.markdown("### 🎯 Action Items")
+    
+    st.markdown("""
+    **📋 Next Steps:**
+    1. **Review the squad** - Check if all selected players align with your strategy
+    2. **Verify captain choice** - Ensure the recommended captain fits your risk tolerance
+    3. **Check bench order** - Review the bench ordering for autosubstitutions
+    4. **Monitor injuries** - Check for any late injury news before deadline
+    5. **Consider transfers** - Use the insights to plan future transfers
+    """)
+    
+    # ============================================================================
+    # FOOTER
+    # ============================================================================
+    st.markdown("---")
+    st.markdown("""
+    <div style="text-align: center; padding: 10px; background-color: #f8f9fa; border-radius: 5px;">
+        <p style="margin: 0; color: #6c757d;">
+            🤖 <strong>AI-Powered FPL Optimization</strong> | 
+            📊 <strong>Machine Learning Enhanced</strong> | 
+            ⚽ <strong>Data-Driven Decisions</strong>
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
 
 def show_ml_models_page(optimizer: SquadOptimizer, players: List[Player], events: List[GameweekEvent], available_gws: List[int]):
